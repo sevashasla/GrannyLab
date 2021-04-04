@@ -124,7 +124,6 @@ class Array(Iterable):
 
 
 	def __isub__(self, other):
-		other = Array(other)
 		if len(other) == 1:
 			for index in range(len(self)):
 				self[index] -= other[0]
@@ -190,7 +189,10 @@ class Array(Iterable):
 		return self + other
 
 	def __rsub__(self, other):
-		return Array(other) - self
+		newone = deepcopy(self)
+		for i in range(len(newone)):
+			newone[i] = other - newone[i]
+		return newone
 
 	def __rmul__(self, other):
 		return self * other
@@ -295,16 +297,22 @@ class Element():
 		return self
 
 	def __add__(self, other):
+		if(isinstance(other, Array)):
+			return other.__radd__(self)
 		newone = deepcopy(self)
 		newone += other
 		return newone
 
 	def __sub__(self, other):
+		if(isinstance(other, Array)):
+			return other.__rsub__(self)
 		newone = deepcopy(self)
 		newone -= other
 		return newone
 	
 	def __mul__(self, other):
+		if(isinstance(other, Array)):
+			return other.__rmul__(self)
 		newone = deepcopy(self)
 		newone *= other
 		return newone
@@ -312,7 +320,6 @@ class Element():
 	def __truediv__(self, other):
 		if(isinstance(other, Array)):
 			return other.__rtruediv__(self)
-			
 		newone = deepcopy(self)
 		newone /= other
 		return newone

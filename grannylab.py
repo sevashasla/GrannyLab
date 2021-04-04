@@ -48,15 +48,17 @@ class Array(Iterable):
 	def __init__(self, elements=None):
 		super().__init__()
 		if(elements is None):
-			elements = []
+			self.elements = []
 		if isinstance(elements, Real):
-			elements = [elements]
+			self.elements = [Element(elements)]
+		elif isinstance(elements, Element):
+			self.elements = [elements]
 		elif isinstance(elements, Array):
-			elements = deepcopy(elements)
-
-		self.elements = list(deepcopy(elements))
-		for index in range(len(elements)):
-			self.elements[index] = Element(self.elements[index])
+			self.elements = deepcopy(elements)
+		elif isinstance(elements, list):
+			self.elements = deepcopy(elements)
+			for el in self.elements:
+				el = Element(el)
 
 	def make_errors_equal(self, error):
 		for el in self:
@@ -109,79 +111,59 @@ class Array(Iterable):
 		return len(self.elements)
 
 	def __iadd__(self, other):
-		if isinstance(other, Array):
-			if(len(other) != len(self)):
-				raise ValueError("operands have to equal len")
+		other = Array(other)
+		if len(other) == 1:
+			for index in range(len(self)):
+				self[index] += other[0]
+		elif len(other) != len(self):
+			raise ValueError("operands have to be with equal len")
+		else:
 			for index in range(len(self)):
 				self[index] += other[index]
-		elif isinstance(other, Element):
-			for index in range(len(self)):
-				self[index] += other
-		elif isinstance(other, Real):
-			other = Element(other)
-			for index in range(len(self)):
-				self[index] += other
-		else:
-			raise TypeError("wrong type")
 		return self
+
 
 	def __isub__(self, other):
-		if isinstance(other, Array):
-			if(len(other) != len(self)):
-				raise ValueError("operands have to equal len")
+		other = Array(other)
+		if len(other) == 1:
+			for index in range(len(self)):
+				self[index] -= other[0]
+		elif len(other) != len(self):
+			raise ValueError("operands have to be with equal len")
+		else:
 			for index in range(len(self)):
 				self[index] -= other[index]
-		elif isinstance(other, Element):
-			for index in range(len(self)):
-				self[index] -= other
-		elif isinstance(other, Real):
-			other = Element(other)
-			for index in range(len(self)):
-				self[index] -= other
-		else:
-			raise TypeError("wrong type")
-		return self
+		return self		
 
 	def __itruediv__(self, other):
-		if isinstance(other, Array):
-			if(len(other) != len(self)):
-				raise ValueError("operands have to equal len")
+		other = Array(other)
+		if len(other) == 1:
+			for index in range(len(self)):
+				self[index] /= other[0]
+		elif len(other) != len(self):
+			raise ValueError("operands have to be with equal len")
+		else:
 			for index in range(len(self)):
 				self[index] /= other[index]
-		elif isinstance(other, Element):
-			for index in range(len(self)):
-				self[index] /= other
-		elif isinstance(other, Real):
-			other = Element(other)
-			for index in range(len(self)):
-				self[index] /= other
-		else:
-			raise TypeError("wrong type")
 		return self
 
 	def __imul__(self, other):
-		if isinstance(other, Array):
-			if(len(other) != len(self)):
-				raise ValueError("operands have to equal len")
+		other = Array(other)
+		if len(other) == 1:
+			for index in range(len(self)):
+				self[index] *= other[0]
+		elif len(other) != len(self):
+			raise ValueError("operands have to be with equal len")
+		else:
 			for index in range(len(self)):
 				self[index] *= other[index]
-		elif isinstance(other, Element):
-			for index in range(len(self)):
-				self[index] *= other
-		elif isinstance(other, Real):
-			other = Element(other)
-			for index in range(len(self)):
-				self[index] *= other
-		else:
-			raise TypeError("wrong type")
 		return self
 
 	def __ipow__(self, power):
 		if not isinstance(power, Real):
-			raise TypeError("wrong type")
+			raise TypeError("Wrong type. It must be int or float")
 		for index in range(len(self)):
 			self[index] **= power
-
 		return self
 
 	def __add__(self, other):
@@ -203,6 +185,22 @@ class Array(Iterable):
 		newone = deepcopy(self)
 		newone /= other
 		return newone
+	
+	def __radd__(self, other):
+		return self + other
+
+	def __rsub__(self, other):
+		return Array(other) - self
+
+	def __rmul__(self, other):
+		return self * other
+
+	def __rtruediv__(self, other):
+		newone = deepcopy(self)
+		for i in range(len(newone)):
+			newone[i] = other / newone[i]
+		return newone
+
 
 	def __pow__(self, power):
 		newone = deepcopy(self)
@@ -312,6 +310,9 @@ class Element():
 		return newone
 
 	def __truediv__(self, other):
+		if(isinstance(other, Array)):
+			return other.__rtruediv__(self)
+			
 		newone = deepcopy(self)
 		newone /= other
 		return newone
@@ -320,6 +321,19 @@ class Element():
 		newone = deepcopy(self)
 		newone **= power
 		return newone
+
+	def __radd__(self, other):
+		return (self + other)
+
+	def __rsub__(self, other):
+		return (-self + other)
+
+	def __rmul__(self, other):
+		return (self * other)
+
+	def __rtruediv__(self, other):
+		other = Element(other)
+		return (other / self)
 
 	def __neg__(self):
 		return Element(-self.value, self.error)
@@ -353,7 +367,11 @@ class Element():
 		if first_nonull != len(error_str):
 			count = 0 if first_nonull < index_dot else first_nonull - index_dot
 			try:
-				supplement = 1 if error_str[first_nonull + 1] != 0 else 0
+				if(error_str[first_nonull + 1] == '.'):
+					supplement = 1 if error_str[first_nonull + 2] != '0' else 0
+				else:
+					supplement = 1 if error_str[first_nonull + 1] != '0' else 0
+
 			except IndexError:
 				supplement = 0
 				pass

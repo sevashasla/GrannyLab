@@ -227,8 +227,10 @@ def formula_array(func, *args):
 		if isinstance(el, Array):
 			n = len(el)
 			break
+
 	for i in range(n):
-		new_args = [deepcopy(el) if (isinstance(el, Element) or isinstance(el, Real)) else deepcopy(el)[i] for el in args]
+		new_args = [deepcopy(el) if (isinstance(el, Element) or isinstance(el, Real))
+		 else deepcopy(el[i]) for el in args]
 		res_i = formula(func, *new_args)
 		result.append(res_i)
 	return result

@@ -5,6 +5,54 @@ from copy import copy, deepcopy
 
 pi = math.pi
 e = math.e
+_eps = 1e-7
+
+
+def LeastSquares(x_data, y_data, c_is_null=False):
+	x = deepcopy(x_data)
+	y = deepcopy(y_data)
+
+	n = len(x)
+
+	if not c_is_null:
+		k = (mean(x * y).value / mean(x ** 2).value)
+		c = 0.0
+		sigma_k = 1.0/sqrt(n) * sqrt((mean(y**2).value - mean(y).value**2)/(mean(x**2).value - mean(x).value**2) - k**2)
+		sigma_c = 0.0
+	else:
+		k = (mean(x * y).value - mean(x).value * mean(y).value)/(mean(x**2).value - mean(x).value**2)
+		c = (mean(y).value - k * mean(x).value)
+		sigma_k = 1.0/sqrt(n) * sqrt((mean(y**2).value - mean(y).value**2)/(mean(x**2).value - mean(x).value**2) - k**2)
+		sigma_c = sigma_k * sqrt(mean(x**2).value - mean(x).value**2)
+		
+	x1 = [x[0].value + x[0].error, x[-1].value - x[-1].error]
+	y1 = [y[0].value - y[0].error, y[-1].value + y[-1].error]
+	k1 = (y1[1] - y1[0]) / (x1[1] - x1[0])
+	c1 = (y1[1] - k1 * x1[1])
+	
+	x2 = [x[0].value - x[0].error, x[-1].value + x[-1].error]
+	y2 = [y[0].value + y[0].error, y[-1].value - y[-1].error]
+	k2 = (y2[1] - y2[0]) / (x2[1] - x2[0])
+	c2 = (y2[1] - k2 * x2[1])
+	
+	sigma_k_add = abs((k2 - k1) / (2.0 * sqrt(n)))
+	sigma_c_add = abs((c2 - c1) / (2.0 * sqrt(n)))
+
+
+	sigma_c = sqrt(sigma_k ** 2.0 + sigma_k_add ** 2.0)
+	sigma_c = sqrt(sigma_c ** 2.0 + sigma_c_add ** 2.0)
+
+
+	return [Element(k, sigma_k), Element(c, sigma_c)]
+
+def mean(x):
+	if isinstance(x, Array):
+		return x.mean()
+
+
+
+def sqrt(x):
+	return x ** 0.5
 
 def sin(x):
 	newone = deepcopy(x)
@@ -84,6 +132,7 @@ class Array(Iterable):
 		for el in self:
 			mean_value += el.value
 		mean_value /= len(self)
+		return mean_value
 
 	def mean(self):
 		mean = Element(0.0)
@@ -104,6 +153,7 @@ class Array(Iterable):
 		for el in self:
 			mean_error += el.error
 		mean_error /= len(self)
+		return mean_error
 
 	def __getitem__(self, key):
 		return self.elements[key]
@@ -227,7 +277,6 @@ class Array(Iterable):
 		self.elements.append(element)
 
 def formula_array(func, *args):
-	eps = 1e-7
 	args = list(args)
 	result = Array()
 	n = 0
@@ -243,16 +292,15 @@ def formula_array(func, *args):
 	return result
 
 def formula(func, *args):
-	eps = 1e-7
 	args = list(args)
 	value = func(*args).value
 	error = 0.0
 	new_args = deepcopy(args)
 	for index, el in enumerate(args):
 		
-		new_args[index].value += eps
-		error += ((func(*new_args) - value).value / eps * (el.error)) ** 2.0
-		new_args[index].value -= eps
+		new_args[index].value += _eps
+		error += ((func(*new_args) - value).value / _eps * (el.error)) ** 2.0
+		new_args[index].value -= _eps
 
 	error = math.sqrt(error)
 	return Element(value, error)
@@ -299,7 +347,9 @@ class Element():
 		return self
 
 	def __ipow__(self, power):
-		self.error = abs(power * self.value ** (power - 1) * self.error)
+		if abs(self.value) < _eps:
+			return self
+		self.error = abs(power * self.value ** (power - 1.0) * self.error)
 		self.value = self.value ** power
 		return self
 

@@ -3,18 +3,25 @@ import math
 from numbers import Real
 from copy import copy, deepcopy
 
+pi = math.pi
+e = math.e
+
 def sin(x):
 	newone = deepcopy(x)
 	if isinstance(newone, Iterable):
 		for el in newone:
 			if isinstance(el, Element):
-				el.call_log()
+				el.call_sin()
 			else:
 				el = math.log(el)
 	elif isinstance(newone, Element):
-		newone.call_log()
+		newone.call_sin()
 	else:
 		newone = math.log(newone)
+	return newone
+
+def cos(x):
+	return sin(pi / 2.0 - x)
 
 
 def log(x):
@@ -29,7 +36,7 @@ def log(x):
 		newone.call_log()
 	else:
 		newone = math.log(newone)
-
+	return newone
 
 class ArrayIterator(Iterator):
 	def __init__(self, array):
@@ -56,7 +63,7 @@ class Array(Iterable):
 		elif isinstance(elements, Array):
 			self.elements = deepcopy(elements)
 		elif isinstance(elements, list):
-			self.elements = deepcopy(elements)
+			self.elements = [Element(el) for el in elements]
 			for el in self.elements:
 				el = Element(el)
 
@@ -124,6 +131,7 @@ class Array(Iterable):
 
 
 	def __isub__(self, other):
+		other = Array(other)
 		if len(other) == 1:
 			for index in range(len(self)):
 				self[index] -= other[0]
@@ -229,8 +237,7 @@ def formula_array(func, *args):
 			break
 
 	for i in range(n):
-		new_args = [deepcopy(el) if (isinstance(el, Element) or isinstance(el, Real))
-		 else deepcopy(el[i]) for el in args]
+		new_args = [deepcopy(el) if (isinstance(el, Element) or isinstance(el, Real)) else deepcopy(el[i]) for el in args]
 		res_i = formula(func, *new_args)
 		result.append(res_i)
 	return result
@@ -399,12 +406,12 @@ class Element():
 		return (other < self)
 
 	def call_sin(self):
-		self.value = math.sin(self.value)
 		self.error = abs(math.cos(self.value) * self.error)
+		self.value = math.sin(self.value)
 
 	def call_log(self):
-		self.value = math.log(self.value)
 		self.error = abs(self.error	/ self.value)
+		self.value = math.log(self.value)
 
 	def percentages(self):
 		return self.error / self.value * 100.0

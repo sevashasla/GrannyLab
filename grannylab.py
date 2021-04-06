@@ -2,6 +2,7 @@ from collections.abc import Container, Iterable, Iterator
 import math
 from numbers import Real
 from copy import copy, deepcopy
+import functools
 
 pi = math.pi
 e = math.e
@@ -14,15 +15,15 @@ def LeastSquares(x_data, y_data, c_is_null=False):
 
 	n = len(x)
 
-	if not c_is_null:
+	if c_is_null:
 		k = (mean(x * y).value / mean(x ** 2).value)
 		c = 0.0
-		sigma_k = 1.0/sqrt(n) * sqrt((mean(y**2).value - mean(y).value**2)/(mean(x**2).value - mean(x).value**2) - k**2)
+		sigma_k = 1.0/sqrt(n) * sqrt(abs((mean(y**2).value - mean(y).value**2)/(mean(x**2).value - mean(x).value**2) - k**2))
 		sigma_c = 0.0
 	else:
 		k = (mean(x * y).value - mean(x).value * mean(y).value)/(mean(x**2).value - mean(x).value**2)
 		c = (mean(y).value - k * mean(x).value)
-		sigma_k = 1.0/sqrt(n) * sqrt((mean(y**2).value - mean(y).value**2)/(mean(x**2).value - mean(x).value**2) - k**2)
+		sigma_k = 1.0/sqrt(n) * sqrt(abs((mean(y**2).value - mean(y).value**2)/(mean(x**2).value - mean(x).value**2) - k**2))
 		sigma_c = sigma_k * sqrt(mean(x**2).value - mean(x).value**2)
 		
 	x1 = [x[0].value + x[0].error, x[-1].value - x[-1].error]
@@ -47,7 +48,7 @@ def LeastSquares(x_data, y_data, c_is_null=False):
 
 def mean(x):
 	if isinstance(x, Array):
-		return x.mean()
+		return x.mean
 
 
 
@@ -119,14 +120,17 @@ class Array(Iterable):
 		for el in self:
 			el.error = error
 
-	def get_errors(self):
+	@property
+	def errors(self):
 		errors = [el.error for el in self.elements]
 		return errors
 
-	def get_values(self):
+	@property
+	def values(self):
 		values = [el.value for el in self.elements]
 		return values
 
+	@property
 	def mean_value(self):
 		mean_value = 0.0
 		for el in self:
@@ -134,20 +138,23 @@ class Array(Iterable):
 		mean_value /= len(self)
 		return mean_value
 
+	@property
 	def mean(self):
 		mean = Element(0.0)
-		mean.value = self.mean_value()
-		mean.error = math.sqrt(self.mean_error() ** 2.0 + (self.std() / len(self)) ** 2.0)
+		mean.value = self.mean_value
+		mean.error = math.sqrt(self.mean_error ** 2.0 + (self.std) ** 2.0 / len(self))
 		return mean
 
+	@property
 	def std(self):
 		std = 0.0
-		mean_value = self.mean_value()
+		mean_value = self.mean_value
 		for el in self:
 			std += (el.value - mean_value) ** 2.0
 		std = math.sqrt(std / len(self))
 		return std
 
+	@property
 	def mean_error(self):
 		mean_error = 0.0
 		for el in self:
@@ -414,7 +421,8 @@ class Element():
 	def __float__(self):
 		return self.value
 
-	def __str__(self):
+	@property
+	def to_print(self):
 		value = self.value
 		error_str = list(str(self.error))
 		error = self.error
@@ -443,7 +451,8 @@ class Element():
 			error = (int(error * 10 ** count) + supplement) / (10 ** count)
 			value = round(value, count)
 
-		return "value: {}, error: {}".format(value, error)
+	def __str__(self):
+		return "value: {}, error: {}".format(self.value, self.error)
 
 	def __repl__(self):
 		return "value: {}, error: {}".format(self.value, self.error)

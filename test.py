@@ -145,11 +145,9 @@ def test_big_formula_just():
 	assert equal(f(x, y, z, k)[2].value, gr.formula_array(f, x, y, z, k)[2].value)
 	assert equal(f(x, y, z, k)[3].value, gr.formula_array(f, x, y, z, k)[3].value)
 
+
 def test_LeastSquares():
 	x = gr.Array([1.0, 2.0, 3.0])
 	y = gr.Array([2.0, 5.0, 6.0])
-	x.mean()
-	
-	print(gr.LeastSquares(x, y)[0])
+	assert equal(gr.LeastSquares(x, y)[0].value, 2.0)
 
-test_LeastSquares()

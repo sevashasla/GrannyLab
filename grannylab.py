@@ -10,8 +10,8 @@ _eps = 1e-7
 
 
 def LeastSquares(x_data, y_data, c_is_null=False):
-	x = deepcopy(x_data)
-	y = deepcopy(y_data)
+	x = Array(x_data)
+	y = Array(y_data)
 
 	n = len(x)
 
@@ -111,7 +111,7 @@ class Array(Iterable):
 			self.elements = [elements]
 		elif isinstance(elements, Array):
 			self.elements = deepcopy(elements)
-		elif isinstance(elements, list):
+		elif isinstance(elements, Container):
 			self.elements = [Element(el) for el in elements]
 			for el in self.elements:
 				el = Element(el)
@@ -454,7 +454,7 @@ class Element():
 	def __str__(self):
 		return "value: {}, error: {}".format(self.value, self.error)
 
-	def __repl__(self):
+	def __repr__(self):
 		return "value: {}, error: {}".format(self.value, self.error)
 
 	def __lt__(self, other):

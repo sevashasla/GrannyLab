@@ -1,4 +1,5 @@
 # made by sevashasla
+from __future__ import annotations
 import numpy as np
 import math
 from copy import copy, deepcopy
@@ -11,8 +12,54 @@ e = math.e
 __eps = 1e-7
 
 
+def lstsq(x: array, y: array, coeff_is_null=False) -> (gr.array, gr.array):
+    '''
+        returns approximate solution
+        of equation y = k * x + c 
+        with errors for k and c
+    '''
+    n = len(x)
+
+    if coeff_is_null:
+        k = np.mean(x * y) / np.mean(x ** 2)
+        c = 0.0
+        k_err = 1.0 / np.sqrt(n) * np.sqrt(abs((np.mean(y.values ** 2) - np.mean(y.values) ** 2) / \
+            (np.mean(x.values**2) - np.mean(x.values)**2) - k**2))
+        c_err = 0.0
+
+    else:
+        k = (np.mean(x.values * y.values) - np.mean(x.values) * np.mean(y.values)) / \
+        (np.mean(x.values**2) - np.mean(x.values)**2)
+        c = np.mean(y.values) - k * np.mean(x.values)
+        k_err = 1.0/np.sqrt(n) * np.sqrt(abs((np.mean(y.values**2) - np.mean(y.values)**2) / \
+            (np.mean(x.values**2) - np.mean(x.values)**2) - k**2))
+        c_err = k_err * np.sqrt(np.mean(x.values**2) - np.mean(x.values)**2)
+
+
+    # two critical angles of the line
+    k1 = ((y.values[-1] + y.errors[-1]) - (y.values[0] - y.errors[0])) /\
+     ((x.values[-1] - x.errors[-1]) - (x.values[0] + x.errors[0]))
+    c1 = (y.values[-1] + y.errors[-1]) - k1 * (x.values[-1] - x.errors[-1])
+
+    k2 = ((y.values[-1] - y.errors[-1]) - (y.values[0] + y.errors[0])) /\
+     ((x.values[-1] + x.errors[-1]) - (x.values[0] - x.errors[0]))
+    c2 = (y.values[-1] - y.errors[-1]) - k1 * (x.values[-1] + x.errors[-1])
+
+    k_err_add = np.sqrt((k2 - k1) ** 2) / np.sqrt(n)
+    c_err_add = np.sqrt((c2 - c1) ** 2) / np.sqrt(n)
+
+    k_err = np.sqrt(k_err ** 2.0 + k_err_add ** 2.0)
+    if coeff_is_null:
+        c_err = np.sqrt(c_err ** 2.0 + c_err_add ** 2.0)
+
+    return array([[k, k_err]]), array([[c, c_err]])
+
+
 class array():
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
+        '''
+
+        '''
 
         if len(args) == 1:
             arg = np.array(args[0], dtype=np.float32)
@@ -32,10 +79,29 @@ class array():
         self.grad_layer = None
         self.is_leaf = True
 
-    def __getitem__(self, key):
-        return array([[self.values[key], self.errors[key]]])
+    def __getitem__(self, key) -> None:
+        '''
+            returns item via key
+        '''
+        layer = SelectLayer()
+        return layer(self, key)
 
-    def __setitem__(self, key, value):
+    def item(self) -> (np.float32, np.float32):
+        '''
+        returns pair from signle-element array
+        '''
+        if len(self.arr.values) == 1:
+            return self.values[0], self.errors[0]
+        else:
+            raise RuntimeError("only for single-element array")
+
+    def mean(self) -> array:
+        '''
+        return mean of x with errors
+        '''
+        return array([[self.values.mean(), np.sqrt(self.errors.mean() / len(self) + self.values.std() ** 2)]])
+
+    def __setitem__(self, key: int, value):
         if isinstance(value, Number):
             self.values[key] = value
         else:
@@ -50,8 +116,11 @@ class array():
 
     def __create_from_number(self, maybe_number):
         '''
-                if maybe is a number than we will get vector
-                otherwise we will get maybe_number
+                If maybe_number is a number than 
+                it returns vector full of maybe_number
+                with shapes like in current array.
+
+                Otherwise it returns maybe_number
         '''
         if isinstance(maybe_number, Number):
             maybe_number = array(
@@ -60,61 +129,75 @@ class array():
 
         return maybe_number
 
-    def __add__(self, other):
+    def __add__(self, other) -> array:
         layer = AddLayer()
         other = self.__create_from_number(other)
         return layer(self, other)
 
     # other + self
-    def __radd__(self, other):
+    def __radd__(self, other) -> array:
         return self + other
 
-    def __sub__(self, other):
+    def __sub__(self, other) -> array:
         layer = SubLayer()
         other = self.__create_from_number(other)
         return layer(self, other)
 
     # other - self
-    def __rsub__(self, other):
+    def __rsub__(self, other) -> array:
         return self * (-1) + other
 
-    def __mul__(self, other):
+    def __mul__(self, other) -> array:
         layer = MultiplyLayer()
         other = self.__create_from_number(other)
         return layer(self, other)
 
     # other * self
-    def __rmul__(self, other):
+    def __rmul__(self, other) -> array:
         return self * other
 
-    def __pow__(self, deg):
+    def __pow__(self, deg: Number) -> array:
         layer = DegreeLayer()
         return layer(self, deg)
 
-    def __truediv__(self, other):
+    def __truediv__(self, other) -> array:
         layer = DivideLayer()
         other = self.__create_from_number(other)
         return layer(self, other)
 
     # other / self
-    def __rtruediv__(self, other):
+    def __rtruediv__(self, other) -> array:
         return self ** (-1) * other
 
-    def backward(self, upper=None):
+    def __neg__(self) -> array:
+        return -1 * self
+
+    def backward(self, upper=None) -> None:
+        '''
+            start counting gradients
+            from this point
+        '''
         if upper is None:
             self.grad = np.ones_like(self.values)
+            upper = self.grad
         else:
             self.grad += upper
 
         if not self.is_leaf:
-            self.grad_layer.backward_layer(self.grad)
+            self.grad_layer.backward_layer(upper)
 
     def zero_grad(self):
+        '''
+            It makes gradient equal to zero here and in all dependencies.
+        '''
         self.grad = np.zeros_like(self.grad)
         if not self.is_leaf:
             self.grad_layer.zero_grad_layer()
 
     def count_errors(self, arr_result=None):
+        '''
+            It counts errors from leafs
+        '''
         if arr_result is None:
             self.grad_layer.count_errors(self.errors)
             self.errors = np.sqrt(self.errors)
@@ -125,11 +208,13 @@ class array():
                 arr_result += (self.grad * self.errors) ** 2.0
 
 
-########################################################################
-########################################################################
-#            I also have to add here code of Layers
-########################################################################
-########################################################################
+#....................##..........###....##....##.########.########...######....................#
+#....................##.........##.##....##..##..##.......##.....##.##....##...................#
+#....................##........##...##....####...##.......##.....##.##.........................#
+#....................##.......##.....##....##....######...########...######....................#
+#....................##.......#########....##....##.......##...##.........##...................#
+#....................##.......##.....##....##....##.......##....##..##....##...................#
+#....................########.##.....##....##....########.##.....##..######....................#
 
 
 class Layer(ABC):
@@ -151,10 +236,14 @@ class Layer(ABC):
 
 class AddLayer(Layer):
     '''
-                    f(z), where z = x + y
-                    I have df/dz, so
-                    df/dx = df/dz * dz/dx = df/dz
-                    df/dy = df/dz * dz/dy = df/dz
+        Layer for adding two arrays
+    '''
+
+    '''
+        f(z), where z = x + y
+        I have df/dz, so
+        df/dx = df/dz * dz/dx = df/dz
+        df/dy = df/dz * dz/dy = df/dz
     '''
 
     def __init__(self, *args, **kwargs):
@@ -187,10 +276,14 @@ class AddLayer(Layer):
 
 class SubLayer(Layer):
     '''
-                    f(z), where z = x - y
-                    I have df/dz, so
-                    df/dx = df/dz * dz/dx = df/dz
-                    df/dy = df/dz * dz/dy = -df/dz
+        Layer for subtracting two arrays
+    '''
+
+    '''
+        f(z), where z = x - y
+        I have df/dz, so
+        df/dx = df/dz * dz/dx = df/dz
+        df/dy = df/dz * dz/dy = -df/dz
     '''
 
     def __init__(self, *args, **kwargs):
@@ -223,10 +316,14 @@ class SubLayer(Layer):
 
 class MultiplyLayer(Layer):
     '''
-                    f(z), where z = x * y
-                    I have df/dz, so
-                    df/dx = df/dz * dz/dx = df/dz * y
-                    df/dx = df/dz * dz/dy = df/dz * x
+        Layer for multiplying two arrays
+    '''
+
+    '''
+        f(z), where z = x * y
+        I have df/dz, so
+        df/dx = df/dz * dz/dx = df/dz * y
+        df/dx = df/dz * dz/dy = df/dz * x
     '''
 
     def __init__(self, *args, **kwargs):
@@ -259,9 +356,13 @@ class MultiplyLayer(Layer):
 
 class DegreeLayer(Layer):
     '''
-                    f(z), where z = x^deg
-                    I have df/dz, so
-                    df/dx = df/dz * dz/dx = df/dz * deg * x^(deg - 1)
+        Layer for raising array to a degree
+    '''
+
+    '''
+        f(z), where z = x^deg
+        I have df/dz, so
+        df/dx = df/dz * dz/dx = df/dz * deg * x^(deg - 1)
     '''
 
     def __init__(self, *args, **kwargs):
@@ -291,10 +392,14 @@ class DegreeLayer(Layer):
 
 class DivideLayer(Layer):  # maybe it will be faster than x * y^{-1}
     '''
-                    f(z), where z = x / y
-                    I have df/dz, so
-                    df/dx = df/dz * dz/dx = df/dz * 1 / y
-                    df/dx = df/dz * dz/dy = -df/dz * x / y ** 2
+        Layer for dividing two arrays
+    '''
+
+    '''
+        f(z), where z = x / y
+        I have df/dz, so
+        df/dx = df/dz * dz/dx = df/dz * 1 / y
+        df/dx = df/dz * dz/dy = -df/dz * x / y ** 2
     '''
 
     def __init__(self, *args, **kwargs):
@@ -326,6 +431,35 @@ class DivideLayer(Layer):  # maybe it will be faster than x * y^{-1}
         self.arr_right.zero_grad()
 
 
+class SelectLayer(Layer):
+    '''
+        Layer for getting element from a array
+    '''
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def __call__(self, arr, key):
+        self.arr = arr
+        self.key = key
+        result = array([[self.arr.values[key], self.arr.errors[key]]])
+        result.grad_layer = self
+        result.is_leaf = False
+
+        return result
+
+    def backward_layer(self, other_grad):
+        push_grad = np.zeros_like(self.arr.values, dtype=np.float32)
+        push_grad[self.key] = other_grad[0]
+        self.arr.backward(push_grad)
+
+    def zero_grad_layer(self):
+        self.arr.zero_grad()
+
+    def count_errors(self, arr_result):
+        self.arr.count_errors(arr_result)
+        self.zero_grad()
+
+
 def exp(x):
     layer = ExpLayer()
     return layer(x)
@@ -333,9 +467,13 @@ def exp(x):
 
 def ExpLayer():
     '''
-                    f(z), where z = exp(x)
-                    I have df/dz, so
-                    df/dx = df/dz * dz/dx = df/dz * exp(x)
+        Layer for raise exp to degree of array's elements
+    '''
+
+    '''
+        f(z), where z = exp(x)
+        I have df/dz, so
+        df/dx = df/dz * dz/dx = df/dz * exp(x)
     '''
 
     def __init__(self, *args, **kwargs):
@@ -368,6 +506,11 @@ def log(x):
 
 
 class LogLayer():
+    '''
+        Layer for take logarithm of array's elements
+    '''
+
+
     '''
                     f(z), where z = ln(x)
                     I have df/dz, so

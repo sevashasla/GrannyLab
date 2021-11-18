@@ -12,37 +12,52 @@ e = math.e
 __eps = 1e-7
 
 
-def lstsq(x: array, y: array, coeff_is_null=False) -> (gr.array, gr.array):
+def lstsq(x: array, y: array, coeff_is_null=False) -> (array, array):
     '''
-        returns approximate solution
-        of equation y = k * x + c 
-        with errors for k and c
+        This function returns solution for equation
+        y = k * x + b
+        If one knows that b = 0, than he should set coeff_is_null = True
+        example of usage:
+            # let x, y - gr.arrays with equal sizes
+            lstsq(x, y)
+            or if b = 0:
+            lstsq(x, y, True)
     '''
     n = len(x)
+    if len(x) != len(y):
+        raise RuntimeError("x and y must have equal len")
 
     if coeff_is_null:
         k = np.mean(x * y) / np.mean(x ** 2)
         c = 0.0
-        k_err = 1.0 / np.sqrt(n) * np.sqrt(abs((np.mean(y.values ** 2) - np.mean(y.values) ** 2) / \
-            (np.mean(x.values**2) - np.mean(x.values)**2) - k**2))
+        k_err = 1.0 / np.sqrt(n) * np.sqrt(
+            abs((np.mean(y.values ** 2) - np.mean(y.values) ** 2) /
+                (np.mean(x.values ** 2) - np.mean(x.values) ** 2) - k ** 2)
+        )
         c_err = 0.0
 
     else:
-        k = (np.mean(x.values * y.values) - np.mean(x.values) * np.mean(y.values)) / \
-        (np.mean(x.values**2) - np.mean(x.values)**2)
-        c = np.mean(y.values) - k * np.mean(x.values)
-        k_err = 1.0/np.sqrt(n) * np.sqrt(abs((np.mean(y.values**2) - np.mean(y.values)**2) / \
-            (np.mean(x.values**2) - np.mean(x.values)**2) - k**2))
-        c_err = k_err * np.sqrt(np.mean(x.values**2) - np.mean(x.values)**2)
+        k = (np.mean(x.values * y.values) \
+            - np.mean(x.values) * np.mean(y.values)) \
+        / (np.mean(x.values ** 2) \
+            - np.mean(x.values) ** 2)
 
+        c = np.mean(y.values) - k * np.mean(x.values)
+        k_err = 1.0 / np.sqrt(n) * np.sqrt(abs((np.mean(y.values ** 2)
+                                                - np.mean(y.values) ** 2)
+                                                / (np.mean(x.values ** 2)
+                                                - np.mean(x.values) ** 2) - k ** 2))
+
+        c_err = k_err * np.sqrt(np.mean(x.values ** 2) -
+                                np.mean(x.values) ** 2)
 
     # two critical angles of the line
     k1 = ((y.values[-1] + y.errors[-1]) - (y.values[0] - y.errors[0])) /\
-     ((x.values[-1] - x.errors[-1]) - (x.values[0] + x.errors[0]))
+        ((x.values[-1] - x.errors[-1]) - (x.values[0] + x.errors[0]))
     c1 = (y.values[-1] + y.errors[-1]) - k1 * (x.values[-1] - x.errors[-1])
 
     k2 = ((y.values[-1] - y.errors[-1]) - (y.values[0] + y.errors[0])) /\
-     ((x.values[-1] + x.errors[-1]) - (x.values[0] - x.errors[0]))
+        ((x.values[-1] + x.errors[-1]) - (x.values[0] - x.errors[0]))
     c2 = (y.values[-1] - y.errors[-1]) - k1 * (x.values[-1] + x.errors[-1])
 
     k_err_add = np.sqrt((k2 - k1) ** 2) / np.sqrt(n)
@@ -58,28 +73,61 @@ def lstsq(x: array, y: array, coeff_is_null=False) -> (gr.array, gr.array):
 class array():
     def __init__(self, *args, **kwargs) -> None:
         '''
-
+            example of calling:
+            1:
+                gr.array([
+                    [1.0, 2.0], 
+                    [3.0, 4.0],
+                ])
+                in this case 
+                values: 1.0, 3.0
+                errors: 2.0, 4.0
+            2:
+                gr.array([1.0, 2.0])
+                in this case:
+                values: 1.0, 2.0
+                errors: 0.0, 0.0
+            3:
+                gr.array(
+                    [1.0, 2.0], 
+                    [3.0, 4.0]
+                )
+                in this case:
+                values: 1.0, 2.0
+                errors: 3.0, 4.0
+            4:
+                gr.array(
+                    [1.0, 2.0], 3.0
+                )
+                in this case:
+                values: 1.0, 2.0
+                errors: 3.0, 3.0
         '''
 
         if len(args) == 1:
             arg = np.array(args[0], dtype=np.float32)
-            if(len(arg.shape) == 2):  # values and errors
+            if len(arg.shape) == 2:
+                # values and errors, but in one array
                 self.values = arg[:, 0].copy()
                 self.errors = arg[:, 1].copy()
 
-            else:  # only values
+            else:
+                # only values
                 self.values = arg.copy()
                 self.errors = np.zeros_like(self.values, dtype=np.float32)
-
         else:
+            # values and errors, but in two arrays
             self.values = np.array(args[0], dtype=np.float32)
-            self.errors = np.array(args[1], dtype=np.float32)
+            if isinstance(args[1], Number):
+                self.errors = np.full_like(self.values, args[1], np.float32)
+            else:
+                self.errors = np.array(args[1], dtype=np.float32)
 
         self.grad = np.zeros_like(self.values, dtype=np.float32)
         self.grad_layer = None
         self.is_leaf = True
 
-    def __getitem__(self, key) -> None:
+    def __getitem__(self, key: int) -> None:
         '''
             returns item via key
         '''
@@ -88,8 +136,16 @@ class array():
 
     def item(self) -> (np.float32, np.float32):
         '''
-        returns pair from signle-element array
+            This function returns pair from signle-element array
+            example of usage:
+                x = gr.array([1.0, 0.1])
+                print(x.item())
+
+            [!] this case won't work:
+                x = gr.array([1.0, 1.0], [0.1, 0.1])
+                print(x.item)
         '''
+
         if len(self.arr.values) == 1:
             return self.values[0], self.errors[0]
         else:
@@ -97,11 +153,12 @@ class array():
 
     def mean(self) -> array:
         '''
-        return mean of x with errors
+        This function returns mean with relevant errors
         '''
-        return array([[self.values.mean(), np.sqrt(self.errors.mean() / len(self) + self.values.std() ** 2)]])
+        return array([[self.values.mean(), np.sqrt(self.errors.mean() /
+                                                   len(self) + self.values.std() ** 2)]])
 
-    def __setitem__(self, key: int, value):
+    def __setitem__(self, key: int, value: np.float32):
         if isinstance(value, Number):
             self.values[key] = value
         else:
@@ -111,8 +168,8 @@ class array():
         return len(self.values)
 
     def __str__(self):
-        return "\n".join(["(" + str(self.values[i]) + ", " + \
-        	str(self.errors[i]) + ")" for i in range(len(self))])
+        return "\n".join(["(" + str(self.values[i]) + ", " +
+                          str(self.errors[i]) + ")" for i in range(len(self))])
 
     def __create_from_number(self, maybe_number):
         '''
@@ -174,13 +231,24 @@ class array():
 
     def backward(self, upper=None) -> None:
         '''
-            start counting gradients
-            from this point
+            This function count gradient via
+            chain rule from this point to leafs
+
+            example of usage:
+                x = gr.array([1.0, 0.1])
+                y = x ** 2
+                z = y ** 2 + x
+                z.backward()
         '''
         if upper is None:
             self.grad = np.ones_like(self.values)
             upper = self.grad
         else:
+            # we should watch if this array becomes from
+            # SelectLayer because it has different size
+            if isinstance(self.grad_layer, SelectLayer):
+                upper = np.array([sum(upper)])
+
             self.grad += upper
 
         if not self.is_leaf:
@@ -188,17 +256,47 @@ class array():
 
     def zero_grad(self):
         '''
-            It makes gradient equal to zero here and in all dependencies.
+            It makes gradient equal to zero here and 
+            in all dependencies elements.
+            example of usage:
+                x = gr.array([1.0, 0.1])
+                y = x ** 2
+                y.backward()
+                y.zero_grad()
         '''
         self.grad = np.zeros_like(self.grad)
         if not self.is_leaf:
             self.grad_layer.zero_grad_layer()
 
-    def count_errors(self, arr_result=None):
+    def count_errors(self):
         '''
-            It counts errors from leafs
+            This function count errors of a sequence 
+            of arithmetic equations
+
+            Example of usage:
+                x = gr.array([1.0, 0.1])
+                y = x ** 2
+                y.count_errors()
+                print(y.errors)
+
+
+            [!] Before calling one should make sure that all
+            gradients are equal to zero, if he has called
+            backward function
+        '''
+
+        self.backward()
+        self.count_errors_if_grad_counted()
+        # One don't need to call zero_grad due to
+        # It have made during count_error_if_grad_counted
+
+    def count_errors_if_grad_counted(self, arr_result=None):
+        '''
+            It counts errors from leafs, only [!] if 
+            gradients have already been counted
         '''
         if arr_result is None:
+            self.errors.fill(0)
             self.grad_layer.count_errors(self.errors)
             self.errors = np.sqrt(self.errors)
         else:
@@ -268,9 +366,9 @@ class AddLayer(Layer):
         self.arr_right.zero_grad()
 
     def count_errors(self, arr_result):
-        self.arr_left.count_errors(arr_result)
+        self.arr_left.count_errors_if_grad_counted(arr_result)
         self.arr_left.zero_grad()
-        self.arr_right.count_errors(arr_result)
+        self.arr_right.count_errors_if_grad_counted(arr_result)
         self.arr_right.zero_grad()
 
 
@@ -308,9 +406,9 @@ class SubLayer(Layer):
         self.arr_right.zero_grad()
 
     def count_errors(self, arr_result):
-        self.arr_left.count_errors(arr_result)
+        self.arr_left.count_errors_if_grad_counted(arr_result)
         self.arr_left.zero_grad()
-        self.arr_right.count_errors(arr_result)
+        self.arr_right.count_errors_if_grad_counted(arr_result)
         self.arr_right.zero_grad()
 
 
@@ -348,9 +446,9 @@ class MultiplyLayer(Layer):
         self.arr_right.zero_grad()
 
     def count_errors(self, arr_result):
-        self.arr_left.count_errors(arr_result)
+        self.arr_left.count_errors_if_grad_counted(arr_result)
         self.arr_left.zero_grad()
-        self.arr_right.count_errors(arr_result)
+        self.arr_right.count_errors_if_grad_counted(arr_result)
         self.arr_right.zero_grad()
 
 
@@ -379,14 +477,16 @@ class DegreeLayer(Layer):
         return result
 
     def backward_layer(self, other_grad):
-        push_grad = other_grad * self.deg * self.arr.values ** (self.deg - 1)
+        push_grad = other_grad * self.deg * \
+        self.arr.values ** (self.deg - 1)
+        
         self.arr.backward(push_grad)
 
     def zero_grad_layer(self):
         self.arr.zero_grad()
 
     def count_errors(self, arr_result):
-        self.arr.count_errors(arr_result)
+        self.arr.count_errors_if_grad_counted(arr_result)
         self.arr.zero_grad()
 
 
@@ -425,23 +525,24 @@ class DivideLayer(Layer):  # maybe it will be faster than x * y^{-1}
         self.arr_right.zero_grad()
 
     def count_errors(self, arr_result):
-        self.arr_left.count_errors(arr_result)
+        self.arr_left.count_errors_if_grad_counted(arr_result)
         self.arr_left.zero_grad()
-        self.arr_right.count_errors(arr_result)
+        self.arr_right.count_errors_if_grad_counted(arr_result)
         self.arr_right.zero_grad()
 
 
 class SelectLayer(Layer):
     '''
-        Layer for getting element from a array
+        Layer for getting element from an array
     '''
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
     def __call__(self, arr, key):
         self.arr = arr
         self.key = key
-        result = array([[self.arr.values[key], self.arr.errors[key]]])
+        result = array([self.arr.values[key]], [self.arr.errors[key]])
         result.grad_layer = self
         result.is_leaf = False
 
@@ -456,7 +557,7 @@ class SelectLayer(Layer):
         self.arr.zero_grad()
 
     def count_errors(self, arr_result):
-        self.arr.count_errors(arr_result)
+        self.arr.count_errors_if_grad_counted(arr_result)
         self.zero_grad()
 
 
@@ -496,7 +597,7 @@ def ExpLayer():
         self.arr.zero_grad()
 
     def count_errors(self, arr_result):
-        self.arr.count_errors(arr_result)
+        self.arr.count_errors_if_grad_counted(arr_result)
         self.arr.zero_grad()
 
 
@@ -509,7 +610,6 @@ class LogLayer():
     '''
         Layer for take logarithm of array's elements
     '''
-
 
     '''
                     f(z), where z = ln(x)
@@ -537,5 +637,10 @@ class LogLayer():
         self.arr.zero_grad()
 
     def count_errors(self, arr_result):
-        self.arr.count_errors(arr_result)
+        self.arr.count_errors_if_grad_counted(arr_result)
         self.arr.zero_grad()
+
+
+def sqrt(x):
+    layer = DegreeLayer()
+    return layer(x, 0.5)

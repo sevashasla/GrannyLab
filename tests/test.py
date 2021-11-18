@@ -1,6 +1,28 @@
+import sys
+sys.path.append("/home/sevashasla/coding/python/projects/GrannyLab/src/GrannyLab")
 import pytest
 import grannylab as gr
 import numpy as np
+
+x = gr.array([
+	[15.0, 3.0], 
+	[-11.0, 0.1]
+])
+
+y = 5 * x + x[0] - x[1]
+# z = y[0] ** 2
+
+'''
+	y[0] = 6 x_0 - x_1
+	y[1] = 4 x_1 + x_0
+
+	z = (6 x_0 - x_1) ** 2
+	dz/dx_0 = (6 x_0 - x_1) * 12 = 1212 
+	dz/dx_1 = -2(6 x_0 - x_1) = -202
+'''
+y.backward()
+print(y.grad)
+print(x.grad)
 
 
 def equal(arr_left, arr_right):
@@ -80,7 +102,6 @@ def test_cycle():
 		x = x + x
 
 	x.backward()
-	print(b.grad)
 	assert equal(b.grad, (2 ** 10))
 
 
@@ -122,6 +143,8 @@ def test_errors():
 	errors = np.sqrt(
 		(a.grad * a.errors) ** 2 + (b.grad * b.errors) ** 2 + (c.grad * c.errors) ** 2
 	)
+
+	f.zero_grad()
 	f.count_errors()
 	assert equal(f.errors, errors)
 
@@ -136,6 +159,7 @@ def test_errors_complex_chain():
 	errors = np.sqrt(
 		(a.grad * a.errors) ** 2 + (b.grad * b.errors) ** 2
 	)
+	e.zero_grad()
 	e.count_errors()
 	assert equal(e.errors, errors)
 
@@ -149,6 +173,7 @@ def test_errors_cycle():
 	errors = np.sqrt(
 		(b.grad * b.errors) ** 2
 	)
+	x.zero_grad()
 	x.count_errors()
 	assert equal(x.errors, errors)
 
@@ -159,3 +184,34 @@ def test_lstsq():
 	k, c = gr.lstsq(x, y)
 	assert equal(k.values, 3)
 	assert equal(c.values, 5)
+
+
+def test_select():
+	x = gr.array([
+		[15.0, 3.0], 
+		[-11.0, 0.1]
+	])
+
+	y = 5 * x + x[0] - x[1]
+	y.backward()
+	assert equal(x.grad, [6.0, 4.0])
+
+
+def test_select_complex():
+	x = gr.array([
+		[15.0, 3.0], 
+		[-11.0, 0.1]
+	])
+
+	y = 5 * x + x[0] - x[1]
+	z = y[0] ** 2
+	'''
+		y[0] = 6 x_0 - x_1
+		y[1] = x_0 + 4 x_1
+
+		z = (6 x_0 - x_1) ** 2
+		dz/dx_0 = 12 (6x_0 - x_1) = 1212
+		dz/dx_1 = -2 (6x_0 - x_1) = -202
+	'''
+	z.backward()
+	assert equal(x.grad, [1212, -202])

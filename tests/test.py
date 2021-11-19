@@ -4,26 +4,6 @@ import pytest
 import grannylab as gr
 import numpy as np
 
-x = gr.array([
-	[15.0, 3.0], 
-	[-11.0, 0.1]
-])
-
-y = 5 * x + x[0] - x[1]
-# z = y[0] ** 2
-
-'''
-	y[0] = 6 x_0 - x_1
-	y[1] = 4 x_1 + x_0
-
-	z = (6 x_0 - x_1) ** 2
-	dz/dx_0 = (6 x_0 - x_1) * 12 = 1212 
-	dz/dx_1 = -2(6 x_0 - x_1) = -202
-'''
-y.backward()
-print(y.grad)
-print(x.grad)
-
 
 def equal(arr_left, arr_right):
 	return np.sum(np.abs(arr_left - arr_right)) < gr.__eps	
@@ -186,25 +166,14 @@ def test_lstsq():
 	assert equal(c.values, 5)
 
 
-def test_select():
-	x = gr.array([
-		[15.0, 3.0], 
-		[-11.0, 0.1]
-	])
-
-	y = 5 * x + x[0] - x[1]
-	y.backward()
-	assert equal(x.grad, [6.0, 4.0])
-
-
 def test_select_complex():
 	x = gr.array([
 		[15.0, 3.0], 
 		[-11.0, 0.1]
 	])
 
-	y = 5 * x + x[0] - x[1]
-	z = y[0] ** 2
+	y = 5 * x + x.get(0) - x.get(1)
+	z = y.get(0) ** 2
 	'''
 		y[0] = 6 x_0 - x_1
 		y[1] = x_0 + 4 x_1

@@ -127,7 +127,10 @@ class array():
         self.grad_layer = None
         self.is_leaf = True
 
-    def __getitem__(self, key: int) -> None:
+    def __getitem__(self, key: int) -> tuple:
+        return (self.values[key], self.errors[key])
+
+    def get(self, key: int) -> tuple:
         '''
             returns item via key
         '''
